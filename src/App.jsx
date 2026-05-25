@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 
 import {
@@ -13,82 +13,50 @@ import {
   getDocs,
   deleteDoc,
   doc,
-  updateDoc,
 } from "firebase/firestore";
 
 import { db, auth } from "./firebase";
 
 export default function App() {
-  // -----------------------------
-  // user
-  // -----------------------------
   const [user, setUser] = useState(null);
 
-  // -----------------------------
-  // login
-  // -----------------------------
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // -----------------------------
-  // form
-  // -----------------------------
   const [name, setName] = useState("");
-  const [receiptDate, setReceiptDate] = useState("");
+  const [date, setDate] = useState("");
   const [category, setCategory] = useState("施設使用料");
+  const [detail, setDetail] = useState("");
   const [amount, setAmount] = useState("");
 
-  // -----------------------------
-  // data
-  // -----------------------------
   const [records, setRecords] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [editId, setEditId] = useState(null);
 
-  // -----------------------------
-  // error
-  // -----------------------------
-  const [error, setError] = useState("");
-
-  // -----------------------------
-  // admin
-  // -----------------------------
   const adminEmail = "y_ochiai@lifelong-sport.jp";
   const isAdmin = user?.email === adminEmail;
 
   // -----------------------------
-  // auth keep login
+  // ログイン保持
   // -----------------------------
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (currentUser) => {
-        setUser(currentUser);
-      }
-    );
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
   // -----------------------------
-  // fetch
+  // データ取得
   // -----------------------------
   const fetchRecords = async () => {
-    try {
-      const snap = await getDocs(
-        collection(db, "expenses")
-      );
+    const snap = await getDocs(collection(db, "tatekae"));
 
-      const data = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
+    const data = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
 
-      setRecords(data);
-    } catch (e) {
-      console.error(e);
-      setError("データ取得エラー");
-    }
+    setRecords(data);
   };
 
   useEffect(() => {
@@ -98,189 +66,105 @@ export default function App() {
   }, [user]);
 
   // -----------------------------
-  // login
+  // ログイン
   // -----------------------------
   const login = async () => {
     try {
-      setError("");
-
-      await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (e) {
-      console.error(e);
-      setError("ログイン失敗");
+      alert("ログイン失敗");
     }
   };
 
   // -----------------------------
-  // logout
+  // ログアウト
   // -----------------------------
   const logout = async () => {
-    try {
-      await signOut(auth);
-    } catch (e) {
-      console.error(e);
-    }
+    await signOut(auth);
   };
 
   // -----------------------------
-  // add
+  // 保存
   // -----------------------------
   const addRecord = async () => {
     try {
-      await addDoc(collection(db, "expenses"), {
+      await addDoc(collection(db, "tatekae"), {
         name,
-        receiptDate,
+        date,
         category,
+        detail,
         amount,
-        user: user?.email,
+        user: user.email,
       });
 
       setName("");
-      setReceiptDate("");
+      setDate("");
       setCategory("施設使用料");
+      setDetail("");
       setAmount("");
 
       fetchRecords();
     } catch (e) {
-      console.error(e);
+      console.log(e);
     }
   };
 
   // -----------------------------
-  // delete
+  // 削除
   // -----------------------------
   const deleteRecord = async (id) => {
-    try {
-      if (!window.confirm("削除しますか？"))
-        return;
+    if (!window.confirm("削除しますか？")) return;
 
-      await deleteDoc(doc(db, "expenses", id));
+    await deleteDoc(doc(db, "tatekae", id));
 
-      fetchRecords();
-    } catch (e) {
-      console.error(e);
-    }
+    fetchRecords();
   };
 
   // -----------------------------
-  // edit
+  // フィルター
   // -----------------------------
-  const editRecord = (r) => {
-    setEditId(r.id);
+  const filteredRecords = records.filter((r) => {
+    if (isAdmin) return true;
 
-    setName(r.name || "");
-    setReceiptDate(r.receiptDate || "");
-    setCategory(r.category || "施設使用料");
-    setAmount(r.amount || "");
-  };
+    return r.user === user?.email;
+  });
 
   // -----------------------------
-  // update
-  // -----------------------------
-  const updateRecord = async () => {
-    try {
-      await updateDoc(
-        doc(db, "expenses", editId),
-        {
-          name,
-          receiptDate,
-          category,
-          amount,
-        }
-      );
-
-      setEditId(null);
-
-      setName("");
-      setReceiptDate("");
-      setCategory("施設使用料");
-      setAmount("");
-
-      fetchRecords();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // -----------------------------
-  // filter
-  // -----------------------------
-  const filteredRecords = records.filter(
-    (r) => {
-      const monthMatch = selectedMonth
-        ? r.receiptDate?.slice(0, 7) ===
-          selectedMonth
-        : true;
-
-      const userMatch = isAdmin
-        ? true
-        : r.user === user?.email;
-
-      return monthMatch && userMatch;
-    }
-  );
-
-  // -----------------------------
-  // excel
+  // Excel出力
   // -----------------------------
   const exportExcel = () => {
-    if (!selectedMonth) {
-      alert("月を選択してください");
-      return;
-    }
-
     const data = filteredRecords.map((r) => ({
-      氏名: r.name || "",
-      領収書日付: r.receiptDate || "",
-      勘定科目: r.category || "",
-      金額: r.amount || "",
-      入力者: r.user || "",
+      名前: r.name,
+      日付: r.date,
+      勘定科目: r.category,
+      詳細: r.detail,
+      金額: r.amount,
+      担当者: r.user,
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
 
     const wb = XLSX.utils.book_new();
 
-    XLSX.utils.book_append_sheet(
-      wb,
-      ws,
-      "立替金"
-    );
+    XLSX.utils.book_append_sheet(wb, ws, "立替金");
 
-    XLSX.writeFile(
-      wb,
-      `立替金_${selectedMonth}.xlsx`
-    );
+    XLSX.writeFile(wb, "立替金一覧.xlsx");
   };
 
   // -----------------------------
-  // login screen
+  // ログイン前
   // -----------------------------
   if (!user) {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <h1 style={styles.title}>
-            立替金アプリ
-          </h1>
-
-          {error && (
-            <p style={{ color: "red" }}>
-              {error}
-            </p>
-          )}
+          <h2>立替金アプリ</h2>
 
           <input
             style={styles.input}
             placeholder="メール"
             value={email}
-            onChange={(e) =>
-              setEmail(e.target.value)
-            }
+            onChange={(e) => setEmail(e.target.value)}
           />
 
           <input
@@ -288,15 +172,10 @@ export default function App() {
             type="password"
             placeholder="パスワード"
             value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
+            onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button
-            style={styles.button}
-            onClick={login}
-          >
+          <button style={styles.button} onClick={login}>
             ログイン
           </button>
         </div>
@@ -305,58 +184,39 @@ export default function App() {
   }
 
   // -----------------------------
-  // main
+  // メイン画面
   // -----------------------------
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>
-          立替金アプリ
-        </h1>
+      <h2>立替金アプリ</h2>
 
-        <p>
-          ログイン中：{user?.email}
-        </p>
+      <p>ログイン中：{user.email}</p>
 
-        {isAdmin && (
-          <p style={styles.admin}>
-            管理者モード
-          </p>
-        )}
+      {isAdmin && <h3>管理者モード</h3>}
 
-        <button
-          style={styles.logout}
-          onClick={logout}
-        >
-          ログアウト
-        </button>
-      </div>
+      <button style={styles.logout} onClick={logout}>
+        ログアウト
+      </button>
 
       <div style={styles.card}>
         <input
           style={styles.input}
           placeholder="名前"
           value={name}
-          onChange={(e) =>
-            setName(e.target.value)
-          }
+          onChange={(e) => setName(e.target.value)}
         />
 
         <input
           style={styles.input}
           type="date"
-          value={receiptDate}
-          onChange={(e) =>
-            setReceiptDate(e.target.value)
-          }
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
         />
 
         <select
           style={styles.input}
           value={category}
-          onChange={(e) =>
-            setCategory(e.target.value)
-          }
+          onChange={(e) => setCategory(e.target.value)}
         >
           <option>施設使用料</option>
           <option>消耗品費</option>
@@ -364,89 +224,47 @@ export default function App() {
           <option>その他</option>
         </select>
 
+        <textarea
+          style={styles.textarea}
+          placeholder="詳細"
+          value={detail}
+          onChange={(e) => setDetail(e.target.value)}
+        />
+
         <input
           style={styles.input}
           type="number"
           placeholder="金額"
           value={amount}
-          onChange={(e) =>
-            setAmount(e.target.value)
-          }
+          onChange={(e) => setAmount(e.target.value)}
         />
 
-        {editId ? (
-          <button
-            style={styles.button}
-            onClick={updateRecord}
-          >
-            更新
-          </button>
-        ) : (
-          <button
-            style={styles.button}
-            onClick={addRecord}
-          >
-            保存
-          </button>
-        )}
-      </div>
+        <button style={styles.button} onClick={addRecord}>
+          保存
+        </button>
 
-      <div style={styles.card}>
-        <input
-          type="month"
-          value={selectedMonth}
-          onChange={(e) =>
-            setSelectedMonth(e.target.value)
-          }
-        />
-
-        <button
-          style={styles.button}
-          onClick={exportExcel}
-        >
+        <button style={styles.excel} onClick={exportExcel}>
           Excel出力
         </button>
       </div>
 
-      {filteredRecords.length === 0 ? (
-        <div style={styles.card}>
-          <p>データなし</p>
+      {filteredRecords.map((r) => (
+        <div key={r.id} style={styles.record}>
+          <p>名前：{r.name}</p>
+          <p>日付：{r.date}</p>
+          <p>勘定科目：{r.category}</p>
+          <p>詳細：{r.detail}</p>
+          <p>金額：{r.amount}円</p>
+          <p>担当者：{r.user}</p>
+
+          <button
+            style={styles.delete}
+            onClick={() => deleteRecord(r.id)}
+          >
+            削除
+          </button>
         </div>
-      ) : (
-        filteredRecords.map((r) => (
-          <div key={r.id} style={styles.card}>
-            <p>名前：{r.name}</p>
-            <p>
-              領収書日付：
-              {r.receiptDate}
-            </p>
-            <p>
-              勘定科目：
-              {r.category}
-            </p>
-            <p>金額：¥{r.amount}</p>
-            <p>入力者：{r.user}</p>
-
-            <button
-              style={styles.small}
-              onClick={() =>
-                editRecord(r)
-              }
-            >
-              編集
-            </button>
-
-            <button
-              style={styles.smallDelete}
-              onClick={() =>
-                deleteRecord(r.id)
-              }
-            >
-              削除
-            </button>
-          </div>
-        ))
-      )}
+      ))}
     </div>
   );
 }
@@ -456,87 +274,84 @@ export default function App() {
 // -----------------------------
 const styles = {
   container: {
-    minHeight: "100vh",
-    background:
-      "linear-gradient(to bottom, #dbeafe, #f8fafc)",
-    padding: 20,
-    maxWidth: 700,
+    maxWidth: 600,
     margin: "0 auto",
-    fontFamily: "sans-serif",
-  },
-
-  header: {
-    marginBottom: 20,
-  },
-
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#1e3a8a",
-  },
-
-  admin: {
-    color: "#dc2626",
-    fontWeight: "bold",
+    padding: 20,
+    background: "#f4f6f9",
+    minHeight: "100vh",
   },
 
   card: {
     background: "white",
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 12,
     marginBottom: 20,
-    boxShadow:
-      "0 4px 10px rgba(0,0,0,0.08)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
   },
 
   input: {
     width: "100%",
     padding: 12,
     marginBottom: 12,
-    borderRadius: 10,
-    border: "1px solid #d1d5db",
+    borderRadius: 8,
+    border: "1px solid #ccc",
     fontSize: 16,
-    boxSizing: "border-box",
+  },
+
+  textarea: {
+    width: "100%",
+    minHeight: 80,
+    padding: 12,
+    marginBottom: 12,
+    borderRadius: 8,
+    border: "1px solid #ccc",
+    fontSize: 16,
   },
 
   button: {
     width: "100%",
-    padding: 14,
-    border: "none",
-    borderRadius: 12,
+    padding: 12,
     background: "#2563eb",
     color: "white",
+    border: "none",
+    borderRadius: 8,
+    marginBottom: 10,
     fontSize: 16,
-    fontWeight: "bold",
-    cursor: "pointer",
+  },
+
+  excel: {
+    width: "100%",
+    padding: 12,
+    background: "#16a34a",
+    color: "white",
+    border: "none",
+    borderRadius: 8,
+    fontSize: 16,
   },
 
   logout: {
+    width: "100%",
     padding: 10,
+    background: "#ef4444",
+    color: "white",
     border: "none",
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+
+  record: {
+    background: "white",
+    padding: 15,
     borderRadius: 10,
-    background: "#ef4444",
-    color: "white",
-    cursor: "pointer",
+    marginBottom: 15,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
   },
 
-  small: {
+  delete: {
     padding: 8,
-    marginRight: 10,
-    border: "none",
-    borderRadius: 8,
-    background: "#2563eb",
-    color: "white",
-    cursor: "pointer",
-  },
-
-  smallDelete: {
-    padding: 8,
-    border: "none",
-    borderRadius: 8,
     background: "#ef4444",
     color: "white",
-    cursor: "pointer",
+    border: "none",
+    borderRadius: 6,
   },
 };
