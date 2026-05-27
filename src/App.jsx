@@ -31,6 +31,8 @@ export default function App() {
 
   const [records, setRecords] = useState([]);
 
+  const [selectedMonth, setSelectedMonth] = useState("");
+
   const adminEmail = "y_ochiai@lifelong-sport.jp";
   const isAdmin = user?.email === adminEmail;
 
@@ -124,9 +126,15 @@ export default function App() {
   // フィルター
   // -----------------------------
   const filteredRecords = records.filter((r) => {
-    if (isAdmin) return true;
+    const monthMatch = selectedMonth
+      ? r.date?.slice(0, 7) === selectedMonth
+      : true;
 
-    return r.user === user?.email;
+    const userMatch = isAdmin
+      ? true
+      : r.user === user?.email;
+
+    return monthMatch && userMatch;
   });
 
   // -----------------------------
@@ -148,7 +156,10 @@ export default function App() {
 
     XLSX.utils.book_append_sheet(wb, ws, "立替金");
 
-    XLSX.writeFile(wb, "立替金一覧.xlsx");
+    XLSX.writeFile(
+      wb,
+      `立替金_${selectedMonth || "全期間"}.xlsx`
+    );
   };
 
   // -----------------------------
@@ -242,6 +253,15 @@ export default function App() {
         <button style={styles.button} onClick={addRecord}>
           保存
         </button>
+
+        <hr />
+
+        <input
+          style={styles.input}
+          type="month"
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+        />
 
         <button style={styles.excel} onClick={exportExcel}>
           Excel出力
