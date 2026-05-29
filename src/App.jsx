@@ -258,35 +258,137 @@ export default function App() {
     );
   };
 
-  // 画像Excel
-  const exportImageExcel = () => {
-    const data = [];
+  // HTML画像台帳
+  const exportImageLedger = () => {
+    let html = `
+      <html>
+      <head>
+        <title>画像台帳</title>
+
+        <style>
+          body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+          }
+
+          h1 {
+            margin-bottom: 30px;
+          }
+
+          .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+
+          .image-block {
+            margin-top: 20px;
+          }
+
+          img {
+            width: 300px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+          }
+
+          p {
+            margin: 6px 0;
+          }
+
+          .number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2563eb;
+          }
+
+          @media print {
+            body {
+              background: white;
+            }
+
+            .card {
+              box-shadow: none;
+              border: 1px solid #ccc;
+            }
+          }
+        </style>
+      </head>
+
+      <body>
+        <h1>立替金 画像台帳</h1>
+    `;
 
     filteredRecords.forEach((r) => {
+      html += `
+        <div class="card">
+
+          <p class="number">
+            投資番号：
+            ${String(r.number).padStart(4, "0")}
+          </p>
+
+          <p>
+            <strong>名前：</strong>
+            ${r.name || ""}
+          </p>
+
+          <p>
+            <strong>日付：</strong>
+            ${r.date || ""}
+          </p>
+
+          <p>
+            <strong>勘定科目：</strong>
+            ${r.category || ""}
+          </p>
+
+          <p>
+            <strong>詳細：</strong>
+            ${r.detail || ""}
+          </p>
+
+          <p>
+            <strong>金額：</strong>
+            ${r.amount || ""}
+          </p>
+      `;
+
       if (r.images && r.images.length > 0) {
         r.images.forEach((img, index) => {
-          data.push({
-            投資番号: String(r.number).padStart(4, "0"),
-            画像番号: `${String(r.number).padStart(
-              4,
-              "0"
-            )}_${index + 1}`,
-            画像データ: img,
-          });
+          html += `
+            <div class="image-block">
+
+              <p>
+                <strong>画像番号：</strong>
+                ${String(r.number).padStart(4, "0")}_${index + 1}
+              </p>
+
+              <img src="${img}" />
+
+            </div>
+          `;
         });
       }
+
+      html += `
+        </div>
+      `;
     });
 
-    const ws = XLSX.utils.json_to_sheet(data);
+    html += `
+        </body>
+      </html>
+    `;
 
-    const wb = XLSX.utils.book_new();
+    const newWindow = window.open();
 
-    XLSX.utils.book_append_sheet(wb, ws, "画像");
+    newWindow.document.write(html);
 
-    XLSX.writeFile(
-      wb,
-      `立替金画像_${selectedMonth || "全期間"}.xlsx`
-    );
+    newWindow.document.close();
   };
 
   // ログイン前
@@ -412,9 +514,9 @@ export default function App() {
 
         <button
           style={styles.imageExcel}
-          onClick={exportImageExcel}
+          onClick={exportImageLedger}
         >
-          画像Excel出力
+          画像台帳出力
         </button>
       </div>
 
