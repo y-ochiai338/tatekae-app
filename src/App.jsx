@@ -13,6 +13,7 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  updateDoc,
 } from "firebase/firestore";
 
 import { db, auth } from "./firebase";
@@ -33,6 +34,8 @@ export default function App() {
   const [records, setRecords] = useState([]);
 
   const [selectedMonth, setSelectedMonth] = useState("");
+
+  const [editingId, setEditingId] = useState(null);
 
   const adminEmail = "y_ochiai@lifelong-sport.jp";
   const isAdmin = user?.email === adminEmail;
@@ -93,17 +96,29 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // 保存
-  const addRecord = async () => {
+  // 保存・更新
+  const saveRecord = async () => {
     try {
-      await addDoc(collection(db, "tatekae"), {
-        date,
-        category,
-        detail,
-        amount,
-        image,
-        user: user.email,
-      });
+      if (editingId) {
+        await updateDoc(doc(db, "tatekae", editingId), {
+          date,
+          category,
+          detail,
+          amount,
+          image,
+        });
+
+        setEditingId(null);
+      } else {
+        await addDoc(collection(db, "tatekae"), {
+          date,
+          category,
+          detail,
+          amount,
+          image,
+          user: user.email,
+        });
+      }
 
       setDate("");
       setCategory("");
@@ -115,6 +130,22 @@ export default function App() {
     } catch (e) {
       console.log(e);
     }
+  };
+
+  // 編集
+  const editRecord = (r) => {
+    setEditingId(r.id);
+
+    setDate(r.date || "");
+    setCategory(r.category || "");
+    setDetail(r.detail || "");
+    setAmount(r.amount || "");
+    setImage(r.image || "");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   // 削除
@@ -258,8 +289,8 @@ export default function App() {
           />
         )}
 
-        <button style={styles.button} onClick={addRecord}>
-          保存
+        <button style={styles.button} onClick={saveRecord}>
+          {editingId ? "更新" : "保存"}
         </button>
 
         <hr />
@@ -296,12 +327,21 @@ export default function App() {
             />
           )}
 
-          <button
-            style={styles.delete}
-            onClick={() => deleteRecord(r.id)}
-          >
-            削除
-          </button>
+          <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+            <button
+              style={styles.edit}
+              onClick={() => editRecord(r)}
+            >
+              編集
+            </button>
+
+            <button
+              style={styles.delete}
+              onClick={() => deleteRecord(r.id)}
+            >
+              削除
+            </button>
+          </div>
         </div>
       ))}
     </div>
@@ -373,11 +413,21 @@ const styles = {
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
   },
 
+  edit: {
+    flex: 1,
+    padding: 10,
+    background: "#f59e0b",
+    color: "white",
+    border: "none",
+    borderRadius: 8,
+  },
+
   delete: {
-    padding: 8,
+    flex: 1,
+    padding: 10,
     background: "#ef4444",
     color: "white",
     border: "none",
-    borderRadius: 6,
+    borderRadius: 8,
   },
 };
