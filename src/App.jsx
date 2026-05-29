@@ -23,11 +23,12 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [name, setName] = useState("");
   const [date, setDate] = useState("");
-  const [category, setCategory] = useState("施設使用料");
+  const [category, setCategory] = useState("");
   const [detail, setDetail] = useState("");
   const [amount, setAmount] = useState("");
+
+  const [image, setImage] = useState("");
 
   const [records, setRecords] = useState([]);
 
@@ -36,9 +37,7 @@ export default function App() {
   const adminEmail = "y_ochiai@lifelong-sport.jp";
   const isAdmin = user?.email === adminEmail;
 
-  // -----------------------------
   // ログイン保持
-  // -----------------------------
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -47,9 +46,7 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // -----------------------------
   // データ取得
-  // -----------------------------
   const fetchRecords = async () => {
     const snap = await getDocs(collection(db, "tatekae"));
 
@@ -67,9 +64,7 @@ export default function App() {
     }
   }, [user]);
 
-  // -----------------------------
   // ログイン
-  // -----------------------------
   const login = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -78,32 +73,43 @@ export default function App() {
     }
   };
 
-  // -----------------------------
   // ログアウト
-  // -----------------------------
   const logout = async () => {
     await signOut(auth);
   };
 
-  // -----------------------------
+  // 画像変換
+  const handleImage = (e) => {
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      setImage(reader.result);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   // 保存
-  // -----------------------------
   const addRecord = async () => {
     try {
       await addDoc(collection(db, "tatekae"), {
-        name,
         date,
         category,
         detail,
         amount,
+        image,
         user: user.email,
       });
 
-      setName("");
       setDate("");
-      setCategory("施設使用料");
+      setCategory("");
       setDetail("");
       setAmount("");
+      setImage("");
 
       fetchRecords();
     } catch (e) {
@@ -111,9 +117,7 @@ export default function App() {
     }
   };
 
-  // -----------------------------
   // 削除
-  // -----------------------------
   const deleteRecord = async (id) => {
     if (!window.confirm("削除しますか？")) return;
 
@@ -122,9 +126,7 @@ export default function App() {
     fetchRecords();
   };
 
-  // -----------------------------
   // フィルター
-  // -----------------------------
   const filteredRecords = records.filter((r) => {
     const monthMatch = selectedMonth
       ? r.date?.slice(0, 7) === selectedMonth
@@ -137,17 +139,15 @@ export default function App() {
     return monthMatch && userMatch;
   });
 
-  // -----------------------------
   // Excel出力
-  // -----------------------------
   const exportExcel = () => {
     const data = filteredRecords.map((r) => ({
-      名前: r.name,
       日付: r.date,
       勘定科目: r.category,
       詳細: r.detail,
       金額: r.amount,
       担当者: r.user,
+      画像あり: r.image ? "あり" : "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -162,9 +162,7 @@ export default function App() {
     );
   };
 
-  // -----------------------------
   // ログイン前
-  // -----------------------------
   if (!user) {
     return (
       <div style={styles.container}>
@@ -194,9 +192,7 @@ export default function App() {
     );
   }
 
-  // -----------------------------
   // メイン画面
-  // -----------------------------
   return (
     <div style={styles.container}>
       <h2>立替金アプリ</h2>
@@ -212,13 +208,6 @@ export default function App() {
       <div style={styles.card}>
         <input
           style={styles.input}
-          placeholder="名前"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-
-        <input
-          style={styles.input}
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
@@ -229,14 +218,15 @@ export default function App() {
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
-          <option>施設使用料</option>
-          <option>消耗品費</option>
-          <option>交通費</option>
-          <option>その他</option>
+          <option value="">勘定科目選択</option>
+          <option value="交通費">交通費</option>
+          <option value="消耗品費">消耗品費</option>
+          <option value="通信費">通信費</option>
+          <option value="その他">その他</option>
         </select>
 
-        <textarea
-          style={styles.textarea}
+        <input
+          style={styles.input}
           placeholder="詳細"
           value={detail}
           onChange={(e) => setDetail(e.target.value)}
@@ -244,11 +234,29 @@ export default function App() {
 
         <input
           style={styles.input}
-          type="number"
           placeholder="金額"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
+
+        <input
+          style={styles.input}
+          type="file"
+          accept="image/*"
+          onChange={handleImage}
+        />
+
+        {image && (
+          <img
+            src={image}
+            alt=""
+            style={{
+              width: "100%",
+              marginBottom: "10px",
+              borderRadius: "10px",
+            }}
+          />
+        )}
 
         <button style={styles.button} onClick={addRecord}>
           保存
@@ -270,12 +278,23 @@ export default function App() {
 
       {filteredRecords.map((r) => (
         <div key={r.id} style={styles.record}>
-          <p>名前：{r.name}</p>
           <p>日付：{r.date}</p>
           <p>勘定科目：{r.category}</p>
           <p>詳細：{r.detail}</p>
-          <p>金額：{r.amount}円</p>
+          <p>金額：{r.amount}</p>
           <p>担当者：{r.user}</p>
+
+          {r.image && (
+            <img
+              src={r.image}
+              alt=""
+              style={{
+                width: "100%",
+                borderRadius: "10px",
+                marginTop: "10px",
+              }}
+            />
+          )}
 
           <button
             style={styles.delete}
@@ -289,9 +308,6 @@ export default function App() {
   );
 }
 
-// -----------------------------
-// styles
-// -----------------------------
 const styles = {
   container: {
     maxWidth: 600,
@@ -311,16 +327,6 @@ const styles = {
 
   input: {
     width: "100%",
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 8,
-    border: "1px solid #ccc",
-    fontSize: 16,
-  },
-
-  textarea: {
-    width: "100%",
-    minHeight: 80,
     padding: 12,
     marginBottom: 12,
     borderRadius: 8,
