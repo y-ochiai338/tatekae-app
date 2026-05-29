@@ -25,7 +25,6 @@ export default function App() {
   const [password, setPassword] = useState("");
 
   const [name, setName] = useState("");
-  const [toshiNo, setToshiNo] = useState("");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
   const [detail, setDetail] = useState("");
@@ -59,6 +58,8 @@ export default function App() {
       id: d.id,
       ...d.data(),
     }));
+
+    data.sort((a, b) => a.number - b.number);
 
     setRecords(data);
   };
@@ -135,9 +136,11 @@ export default function App() {
   const saveRecord = async () => {
     try {
       if (editingId) {
+        const target = records.find((r) => r.id === editingId);
+
         await updateDoc(doc(db, "tatekae", editingId), {
+          ...target,
           name,
-          toshiNo,
           date,
           category,
           detail,
@@ -146,10 +149,17 @@ export default function App() {
         });
 
         setEditingId(null);
+
+        alert("更新しました");
       } else {
+        const nextNumber =
+          records.length > 0
+            ? Math.max(...records.map((r) => r.number || 0)) + 1
+            : 1;
+
         await addDoc(collection(db, "tatekae"), {
+          number: nextNumber,
           name,
-          toshiNo,
           date,
           category,
           detail,
@@ -157,10 +167,11 @@ export default function App() {
           images,
           user: user.email,
         });
+
+        alert("保存しました");
       }
 
       setName("");
-      setToshiNo("");
       setDate("");
       setCategory("");
       setDetail("");
@@ -168,8 +179,6 @@ export default function App() {
       setImages([]);
 
       fetchRecords();
-
-      alert(editingId ? "更新しました" : "保存しました");
     } catch (e) {
       console.log(e);
       alert("保存エラー");
@@ -181,7 +190,6 @@ export default function App() {
     setEditingId(r.id);
 
     setName(r.name || "");
-    setToshiNo(r.toshiNo || "");
     setDate(r.date || "");
     setCategory(r.category || "");
     setDetail(r.detail || "");
@@ -225,32 +233,59 @@ export default function App() {
     return monthMatch && userMatch;
   });
 
-  // Excel出力
+  // データExcel
   const exportExcel = () => {
+    const data = filteredRecords.map((r) => ({
+      投資番号: String(r.number).padStart(4, "0"),
+      名前: r.name,
+      日付: r.date,
+      勘定科目: r.category,
+      詳細: r.detail,
+      金額: r.amount,
+      担当者: r.user,
+      画像枚数: r.images?.length || 0,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws, "データ");
+
+    XLSX.writeFile(
+      wb,
+      `立替金データ_${selectedMonth || "全期間"}.xlsx`
+    );
+  };
+
+  // 画像Excel
+  const exportImageExcel = () => {
     const data = [];
 
     filteredRecords.forEach((r) => {
-      data.push({
-        名前: r.name,
-        投資番号: r.toshiNo,
-        日付: r.date,
-        勘定科目: r.category,
-        詳細: r.detail,
-        金額: r.amount,
-        担当者: r.user,
-        画像枚数: r.images?.length || 0,
-      });
+      if (r.images && r.images.length > 0) {
+        r.images.forEach((img, index) => {
+          data.push({
+            投資番号: String(r.number).padStart(4, "0"),
+            画像番号: `${String(r.number).padStart(
+              4,
+              "0"
+            )}_${index + 1}`,
+            画像データ: img,
+          });
+        });
+      }
     });
 
     const ws = XLSX.utils.json_to_sheet(data);
 
     const wb = XLSX.utils.book_new();
 
-    XLSX.utils.book_append_sheet(wb, ws, "立替金");
+    XLSX.utils.book_append_sheet(wb, ws, "画像");
 
     XLSX.writeFile(
       wb,
-      `立替金_${selectedMonth || "全期間"}.xlsx`
+      `立替金画像_${selectedMonth || "全期間"}.xlsx`
     );
   };
 
@@ -301,13 +336,6 @@ export default function App() {
           placeholder="名前"
           value={name}
           onChange={(e) => setName(e.target.value)}
-        />
-
-        <input
-          style={styles.input}
-          placeholder="投資番号"
-          value={toshiNo}
-          onChange={(e) => setToshiNo(e.target.value)}
         />
 
         <input
@@ -379,14 +407,25 @@ export default function App() {
         />
 
         <button style={styles.excel} onClick={exportExcel}>
-          Excel出力
+          データExcel出力
+        </button>
+
+        <button
+          style={styles.imageExcel}
+          onClick={exportImageExcel}
+        >
+          画像Excel出力
         </button>
       </div>
 
       {filteredRecords.map((r) => (
         <div key={r.id} style={styles.record}>
+          <p>
+            投資番号：
+            {String(r.number).padStart(4, "0")}
+          </p>
+
           <p>名前：{r.name}</p>
-          <p>投資番号：{r.toshiNo}</p>
           <p>日付：{r.date}</p>
           <p>勘定科目：{r.category}</p>
           <p>詳細：{r.detail}</p>
@@ -394,16 +433,26 @@ export default function App() {
 
           {r.images &&
             r.images.map((img, index) => (
-              <img
-                key={index}
-                src={img}
-                alt=""
-                style={{
-                  width: "100%",
-                  borderRadius: "10px",
-                  marginTop: "10px",
-                }}
-              />
+              <div key={index}>
+                <p>
+                  画像番号：
+                  {String(r.number).padStart(
+                    4,
+                    "0"
+                  )}
+                  _{index + 1}
+                </p>
+
+                <img
+                  src={img}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    borderRadius: "10px",
+                    marginTop: "10px",
+                  }}
+                />
+              </div>
             ))}
 
           <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
@@ -468,6 +517,17 @@ const styles = {
     width: "100%",
     padding: 12,
     background: "#16a34a",
+    color: "white",
+    border: "none",
+    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 10,
+  },
+
+  imageExcel: {
+    width: "100%",
+    padding: 12,
+    background: "#9333ea",
     color: "white",
     border: "none",
     borderRadius: 8,
