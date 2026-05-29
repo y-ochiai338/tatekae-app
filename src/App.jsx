@@ -83,7 +83,7 @@ export default function App() {
     await signOut(auth);
   };
 
-  // 画像追加
+  // 画像圧縮アップロード
   const handleImage = (e) => {
     const file = e.target.files[0];
 
@@ -91,8 +91,41 @@ export default function App() {
 
     const reader = new FileReader();
 
-    reader.onloadend = () => {
-      setImages((prev) => [...prev, reader.result]);
+    reader.onload = (event) => {
+      const img = new Image();
+
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+
+        const MAX_WIDTH = 800;
+
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height = height * (MAX_WIDTH / width);
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressedImage = canvas.toDataURL(
+          "image/jpeg",
+          0.5
+        );
+
+        setImages((prev) => [
+          ...prev,
+          compressedImage,
+        ]);
+      };
+
+      img.src = event.target.result;
     };
 
     reader.readAsDataURL(file);
@@ -137,6 +170,7 @@ export default function App() {
       fetchRecords();
     } catch (e) {
       console.log(e);
+      alert("保存エラー");
     }
   };
 
@@ -185,33 +219,16 @@ export default function App() {
     const data = [];
 
     filteredRecords.forEach((r) => {
-      if (r.images && r.images.length > 0) {
-        r.images.forEach((img, index) => {
-          data.push({
-            名前: r.name,
-            投資番号: r.toshiNo,
-            日付: r.date,
-            勘定科目: r.category,
-            詳細: r.detail,
-            金額: r.amount,
-            担当者: r.user,
-            画像番号: index + 1,
-            画像データ: img,
-          });
-        });
-      } else {
-        data.push({
-          名前: r.name,
-          投資番号: r.toshiNo,
-          日付: r.date,
-          勘定科目: r.category,
-          詳細: r.detail,
-          金額: r.amount,
-          担当者: r.user,
-          画像番号: "",
-          画像データ: "",
-        });
-      }
+      data.push({
+        名前: r.name,
+        投資番号: r.toshiNo,
+        日付: r.date,
+        勘定科目: r.category,
+        詳細: r.detail,
+        金額: r.amount,
+        担当者: r.user,
+        画像枚数: r.images?.length || 0,
+      });
     });
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -262,8 +279,6 @@ export default function App() {
       <h2>立替金アプリ</h2>
 
       <p>ログイン中：{user.email}</p>
-
-      {isAdmin && <h3>管理者モード</h3>}
 
       <button style={styles.logout} onClick={logout}>
         ログアウト
@@ -365,7 +380,6 @@ export default function App() {
           <p>勘定科目：{r.category}</p>
           <p>詳細：{r.detail}</p>
           <p>金額：{r.amount}</p>
-          <p>担当者：{r.user}</p>
 
           {r.images &&
             r.images.map((img, index) => (
