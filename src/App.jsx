@@ -168,6 +168,8 @@ export default function App() {
       setImages([]);
 
       fetchRecords();
+
+      alert(editingId ? "更新しました" : "保存しました");
     } catch (e) {
       console.log(e);
       alert("保存エラー");
@@ -194,11 +196,20 @@ export default function App() {
 
   // 削除
   const deleteRecord = async (id) => {
-    if (!window.confirm("削除しますか？")) return;
+    try {
+      const ok = window.confirm("削除しますか？");
 
-    await deleteDoc(doc(db, "tatekae", id));
+      if (!ok) return;
 
-    fetchRecords();
+      await deleteDoc(doc(db, "tatekae", id));
+
+      await fetchRecords();
+
+      alert("削除しました");
+    } catch (e) {
+      console.log(e);
+      alert("削除エラー");
+    }
   };
 
   // フィルター
