@@ -25,12 +25,13 @@ export default function App() {
   const [password, setPassword] = useState("");
 
   const [name, setName] = useState("");
+  const [toshiNo, setToshiNo] = useState("");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
   const [detail, setDetail] = useState("");
   const [amount, setAmount] = useState("");
 
-  const [image, setImage] = useState("");
+  const [images, setImages] = useState([]);
 
   const [records, setRecords] = useState([]);
 
@@ -82,7 +83,7 @@ export default function App() {
     await signOut(auth);
   };
 
-  // 画像変換
+  // 画像追加
   const handleImage = (e) => {
     const file = e.target.files[0];
 
@@ -91,7 +92,7 @@ export default function App() {
     const reader = new FileReader();
 
     reader.onloadend = () => {
-      setImage(reader.result);
+      setImages((prev) => [...prev, reader.result]);
     };
 
     reader.readAsDataURL(file);
@@ -103,32 +104,35 @@ export default function App() {
       if (editingId) {
         await updateDoc(doc(db, "tatekae", editingId), {
           name,
+          toshiNo,
           date,
           category,
           detail,
           amount,
-          image,
+          images,
         });
 
         setEditingId(null);
       } else {
         await addDoc(collection(db, "tatekae"), {
           name,
+          toshiNo,
           date,
           category,
           detail,
           amount,
-          image,
+          images,
           user: user.email,
         });
       }
 
       setName("");
+      setToshiNo("");
       setDate("");
       setCategory("");
       setDetail("");
       setAmount("");
-      setImage("");
+      setImages([]);
 
       fetchRecords();
     } catch (e) {
@@ -141,11 +145,12 @@ export default function App() {
     setEditingId(r.id);
 
     setName(r.name || "");
+    setToshiNo(r.toshiNo || "");
     setDate(r.date || "");
     setCategory(r.category || "");
     setDetail(r.detail || "");
     setAmount(r.amount || "");
-    setImage(r.image || "");
+    setImages(r.images || []);
 
     window.scrollTo({
       top: 0,
@@ -177,15 +182,37 @@ export default function App() {
 
   // Excel出力
   const exportExcel = () => {
-    const data = filteredRecords.map((r) => ({
-      名前: r.name,
-      日付: r.date,
-      勘定科目: r.category,
-      詳細: r.detail,
-      金額: r.amount,
-      担当者: r.user,
-      画像あり: r.image ? "あり" : "",
-    }));
+    const data = [];
+
+    filteredRecords.forEach((r) => {
+      if (r.images && r.images.length > 0) {
+        r.images.forEach((img, index) => {
+          data.push({
+            名前: r.name,
+            投資番号: r.toshiNo,
+            日付: r.date,
+            勘定科目: r.category,
+            詳細: r.detail,
+            金額: r.amount,
+            担当者: r.user,
+            画像番号: index + 1,
+            画像データ: img,
+          });
+        });
+      } else {
+        data.push({
+          名前: r.name,
+          投資番号: r.toshiNo,
+          日付: r.date,
+          勘定科目: r.category,
+          詳細: r.detail,
+          金額: r.amount,
+          担当者: r.user,
+          画像番号: "",
+          画像データ: "",
+        });
+      }
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
 
@@ -252,6 +279,13 @@ export default function App() {
 
         <input
           style={styles.input}
+          placeholder="投資番号"
+          value={toshiNo}
+          onChange={(e) => setToshiNo(e.target.value)}
+        />
+
+        <input
+          style={styles.input}
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
@@ -290,9 +324,12 @@ export default function App() {
           onChange={handleImage}
         />
 
-        {image && (
+        <p>画像枚数：{images.length}</p>
+
+        {images.map((img, index) => (
           <img
-            src={image}
+            key={index}
+            src={img}
             alt=""
             style={{
               width: "100%",
@@ -300,7 +337,7 @@ export default function App() {
               borderRadius: "10px",
             }}
           />
-        )}
+        ))}
 
         <button style={styles.button} onClick={saveRecord}>
           {editingId ? "更新" : "保存"}
@@ -323,23 +360,26 @@ export default function App() {
       {filteredRecords.map((r) => (
         <div key={r.id} style={styles.record}>
           <p>名前：{r.name}</p>
+          <p>投資番号：{r.toshiNo}</p>
           <p>日付：{r.date}</p>
           <p>勘定科目：{r.category}</p>
           <p>詳細：{r.detail}</p>
           <p>金額：{r.amount}</p>
           <p>担当者：{r.user}</p>
 
-          {r.image && (
-            <img
-              src={r.image}
-              alt=""
-              style={{
-                width: "100%",
-                borderRadius: "10px",
-                marginTop: "10px",
-              }}
-            />
-          )}
+          {r.images &&
+            r.images.map((img, index) => (
+              <img
+                key={index}
+                src={img}
+                alt=""
+                style={{
+                  width: "100%",
+                  borderRadius: "10px",
+                  marginTop: "10px",
+                }}
+              />
+            ))}
 
           <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
             <button
