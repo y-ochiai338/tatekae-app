@@ -24,6 +24,7 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
   const [detail, setDetail] = useState("");
@@ -101,6 +102,7 @@ export default function App() {
     try {
       if (editingId) {
         await updateDoc(doc(db, "tatekae", editingId), {
+          name,
           date,
           category,
           detail,
@@ -111,6 +113,7 @@ export default function App() {
         setEditingId(null);
       } else {
         await addDoc(collection(db, "tatekae"), {
+          name,
           date,
           category,
           detail,
@@ -120,6 +123,7 @@ export default function App() {
         });
       }
 
+      setName("");
       setDate("");
       setCategory("");
       setDetail("");
@@ -136,6 +140,7 @@ export default function App() {
   const editRecord = (r) => {
     setEditingId(r.id);
 
+    setName(r.name || "");
     setDate(r.date || "");
     setCategory(r.category || "");
     setDetail(r.detail || "");
@@ -173,6 +178,7 @@ export default function App() {
   // Excel出力
   const exportExcel = () => {
     const data = filteredRecords.map((r) => ({
+      名前: r.name,
       日付: r.date,
       勘定科目: r.category,
       詳細: r.detail,
@@ -237,6 +243,13 @@ export default function App() {
       </button>
 
       <div style={styles.card}>
+        <input
+          style={styles.input}
+          placeholder="名前"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+
         <input
           style={styles.input}
           type="date"
@@ -309,6 +322,7 @@ export default function App() {
 
       {filteredRecords.map((r) => (
         <div key={r.id} style={styles.record}>
+          <p>名前：{r.name}</p>
           <p>日付：{r.date}</p>
           <p>勘定科目：{r.category}</p>
           <p>詳細：{r.detail}</p>
