@@ -59,7 +59,7 @@ export default function App() {
       ...d.data(),
     }));
 
-    data.sort((a, b) => a.number - b.number);
+    data.sort((a, b) => (a.number || 0) - (b.number || 0));
 
     setRecords(data);
   };
@@ -152,10 +152,14 @@ export default function App() {
 
         alert("更新しました");
       } else {
-        const nextNumber =
+        const maxNumber =
           records.length > 0
-            ? Math.max(...records.map((r) => r.number || 0)) + 1
-            : 1;
+            ? Math.max(
+                ...records.map((r) => r.number || 0)
+              )
+            : 0;
+
+        const nextNumber = maxNumber + 1;
 
         await addDoc(collection(db, "tatekae"), {
           number: nextNumber,
@@ -236,7 +240,9 @@ export default function App() {
   // データExcel
   const exportExcel = () => {
     const data = filteredRecords.map((r) => ({
-      投資番号: String(r.number).padStart(4, "0"),
+      投資番号: r.number
+        ? String(r.number).padStart(4, "0")
+        : "未設定",
       名前: r.name,
       日付: r.date,
       勘定科目: r.category,
@@ -295,25 +301,10 @@ export default function App() {
             margin-top: 10px;
           }
 
-          p {
-            margin: 6px 0;
-          }
-
           .number {
             font-size: 20px;
             font-weight: bold;
             color: #2563eb;
-          }
-
-          @media print {
-            body {
-              background: white;
-            }
-
-            .card {
-              box-shadow: none;
-              border: 1px solid #ccc;
-            }
           }
         </style>
       </head>
@@ -328,33 +319,18 @@ export default function App() {
 
           <p class="number">
             投資番号：
-            ${String(r.number).padStart(4, "0")}
+            ${
+              r.number
+                ? String(r.number).padStart(4, "0")
+                : "未設定"
+            }
           </p>
 
-          <p>
-            <strong>名前：</strong>
-            ${r.name || ""}
-          </p>
-
-          <p>
-            <strong>日付：</strong>
-            ${r.date || ""}
-          </p>
-
-          <p>
-            <strong>勘定科目：</strong>
-            ${r.category || ""}
-          </p>
-
-          <p>
-            <strong>詳細：</strong>
-            ${r.detail || ""}
-          </p>
-
-          <p>
-            <strong>金額：</strong>
-            ${r.amount || ""}
-          </p>
+          <p><strong>名前：</strong>${r.name || ""}</p>
+          <p><strong>日付：</strong>${r.date || ""}</p>
+          <p><strong>勘定科目：</strong>${r.category || ""}</p>
+          <p><strong>詳細：</strong>${r.detail || ""}</p>
+          <p><strong>金額：</strong>${r.amount || ""}</p>
       `;
 
       if (r.images && r.images.length > 0) {
@@ -364,7 +340,11 @@ export default function App() {
 
               <p>
                 <strong>画像番号：</strong>
-                ${String(r.number).padStart(4, "0")}_${index + 1}
+                ${
+                  r.number
+                    ? String(r.number).padStart(4, "0")
+                    : "未設定"
+                }_${index + 1}
               </p>
 
               <img src="${img}" />
@@ -524,7 +504,9 @@ export default function App() {
         <div key={r.id} style={styles.record}>
           <p>
             投資番号：
-            {String(r.number).padStart(4, "0")}
+            {r.number
+              ? String(r.number).padStart(4, "0")
+              : "未設定"}
           </p>
 
           <p>名前：{r.name}</p>
@@ -538,10 +520,9 @@ export default function App() {
               <div key={index}>
                 <p>
                   画像番号：
-                  {String(r.number).padStart(
-                    4,
-                    "0"
-                  )}
+                  {r.number
+                    ? String(r.number).padStart(4, "0")
+                    : "未設定"}
                   _{index + 1}
                 </p>
 
