@@ -428,16 +428,17 @@ export default function App() {
         />
 
         <select
-          style={styles.input}
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="">勘定科目選択</option>
-          <option value="交通費">交通費</option>
-          <option value="消耗品費">消耗品費</option>
-          <option value="通信費">通信費</option>
-          <option value="その他">その他</option>
-        </select>
+        style={styles.input}
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+      >
+        <option value="">勘定科目選択</option>
+        <option value="施設使用料">施設使用料</option>
+        <option value="交通費">交通費</option>
+        <option value="消耗品費">消耗品費</option>
+        <option value="通信費">通信費</option>
+        <option value="その他">その他</option>
+      </select>
 
         <input
           style={styles.input}
